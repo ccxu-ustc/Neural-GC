@@ -35,3 +35,4 @@ Training models with non-convex loss functions and non-smooth penalties requires
 ## References
 
 - Alex Tank, Ian Covert, Nicholas Foti, Ali Shojaie, Emily Fox. "Neural Granger Causality." *Transactions on Pattern Analysis and Machine Intelligence*, 2021.
+- TEST
