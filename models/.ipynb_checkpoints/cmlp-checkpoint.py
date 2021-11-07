@@ -3,7 +3,7 @@ import torch.nn as nn
 import numpy as np
 from copy import deepcopy
 from models.model_helper import activation_helper
-
+from models.utils import Causal_Figure
 
 class MLP(nn.Module):
     def __init__(self, num_series, lag, hidden, activation):
@@ -447,8 +447,7 @@ def train_model_adam(cmlp, X, lr, max_iter, lam=0, lam_ridge=0, penalty='H',
     return train_loss_list
 
 
-def train_model_ista(cmlp, X, lr, max_iter, lam=0, lam_ridge=0, penalty='H',
-                     lookback=5, check_every=100, verbose=1):
+def train_model_ista(cmlp, X, lr, max_iter, GC=None, fig=False, lam=0, lam_ridge=0, penalty='H', lookback=5, check_every=100, verbose=1):
     '''Train model with Adam.'''
     lag = cmlp.lag
     p = X.shape[-1]
@@ -498,6 +497,8 @@ def train_model_ista(cmlp, X, lr, max_iter, lam=0, lam_ridge=0, penalty='H',
                 print('Loss = %f' % mean_loss)
                 print('Variable usage = %.2f%%'
                       % (100 * torch.mean(cmlp.GC().float())))
+                if fig:
+                    Causal_Figure(GC, cmlp.GC(ignore_lag=False, threshold=False).cpu().data.numpy())
 
             # Check for early stopping.
             if mean_loss < best_loss:
