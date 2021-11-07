@@ -11,11 +11,11 @@ class MLP(nn.Module):
         self.activation = activation_helper(activation)
 
         # Set up network.
-        layer = nn.Conv1d(num_series, hidden[0], lag)
+        layer = nn.Conv1d(num_series, hidden[0], lag, bias=True)
         modules = [layer]
 
         for d_in, d_out in zip(hidden, hidden[1:] + [1]):
-            layer = nn.Conv1d(d_in, d_out, 1)
+            layer = nn.Conv1d(d_in, d_out, 1, bias=True)
             modules.append(layer)
 
         # Register parameters.
