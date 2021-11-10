@@ -57,6 +57,29 @@ def lorenz(x, t, F):
     return dxdt
 
 
+def simulate_lorenz_96_nonstationary(p, T, F=10.0, delta_t=0.1, sd=0.1, burn_in=1000,
+                       seed=0):
+    if seed is not None:
+        np.random.seed(seed)
+
+    # Use scipy to solve ODE.
+    x0 = np.random.normal(scale=0.01, size=p)
+    t = np.linspace(0, (T + burn_in) * delta_t, T + burn_in)
+    global t_max
+    t_max = (T + burn_in) * delta_t
+    X = odeint(lorenz_nonstationary, x0, t, args=(F,))
+    X += np.random.normal(scale=sd, size=(T + burn_in, p))
+
+    # Set up Granger causality ground truth.
+    GC = np.zeros((p, p), dtype=int)
+    for i in range(p):
+        GC[i, i] = 1
+        GC[i, (i + 1) % p] = 1
+        GC[i, (i - 1) % p] = 1
+        GC[i, (i - 2) % p] = 1
+
+    return X[burn_in:], GC
+
 def simulate_lorenz_96(p, T, F=10.0, delta_t=0.1, sd=0.1, burn_in=1000,
                        seed=0):
     if seed is not None:
@@ -67,6 +90,47 @@ def simulate_lorenz_96(p, T, F=10.0, delta_t=0.1, sd=0.1, burn_in=1000,
     t = np.linspace(0, (T + burn_in) * delta_t, T + burn_in)
     X = odeint(lorenz, x0, t, args=(F,))
     X += np.random.normal(scale=sd, size=(T + burn_in, p))
+
+    # Set up Granger causality ground truth.
+    GC = np.zeros((p, p), dtype=int)
+    for i in range(p):
+        GC[i, i] = 1
+        GC[i, (i + 1) % p] = 1
+        GC[i, (i - 1) % p] = 1
+        GC[i, (i - 2) % p] = 1
+
+    return X[burn_in:], GC
+
+
+def lorenz_nonstationary(x, t, F):
+    '''Partial derivatives for Lorenz-96 ODE.'''
+    p = len(x)
+    global t_max
+    if t < t_max * (1/2):
+        coff = 1 - t / (t_max * (1/2))
+    else:
+        coff = 0
+    # print(coff)
+    dxdt = np.zeros(p)
+    for i in range(p):
+        dxdt[i] = coff * (x[(i+1) % p] - x[(i-2) % p]) * x[(i-1) % p] - x[i] + F
+    return dxdt
+
+def simulate_lorenz_96_mine(p, T, F=2.5, delta_t=0.1, sd=0.1, burn_in=1000, scale=0.01, seed=0):
+    if seed is not None:
+        np.random.seed(seed)
+
+    # Use scipy to solve ODE.
+    x0 = np.random.normal(scale=scale, size=p)
+    t = np.linspace(0, (T + burn_in) * delta_t, T + burn_in)
+    # X = odeint(lorenz, x0, t, args=(F,))
+    X = np.zeros([T + burn_in, p])
+    X[0] = x0
+    for i in range(1,T + burn_in):
+        x = X[i-1]
+        for j in range(p):
+            X[i][j] = delta_t * (x[(j + 1) % p] - x[(j - 2) % p]) * x[(j - 1) % p] + (1 - delta_t) * x[j % p] + delta_t * F
+    # X += np.random.normal(scale=sd, size=(T + burn_in, p))
 
     # Set up Granger causality ground truth.
     GC = np.zeros((p, p), dtype=int)
