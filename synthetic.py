@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.integrate import odeint
+import matplotlib.pyplot as plt
 
 
 def make_var_stationary(beta, radius=0.97):
@@ -116,6 +117,35 @@ def lorenz_nonstationary(x, t, F):
         dxdt[i] = coff * (x[(i+1) % p] - x[(i-2) % p]) * x[(i-1) % p] - x[i] + F
     return dxdt
 
+def simulate_lorenz_96_mine_nonstationary(p, T, F=2.5, delta_t=0.1, sd=0.1, burn_in=1000, scale=0.01, seed=0):
+    if seed is not None:
+        np.random.seed(seed)
+
+    # Use scipy to solve ODE.
+    x0 = np.random.normal(scale=scale, size=p)
+    t = np.linspace(0, (T + burn_in) * delta_t, T + burn_in)
+    # X = odeint(lorenz, x0, t, args=(F,))
+    X = np.zeros([T + burn_in, p])
+    X[0] = x0
+    for i in range(1,T // 2 + burn_in):
+        x = X[i-1]
+        for j in range(p):
+            X[i][j] = delta_t * (x[(j + 1) % p] - x[(j - 2) % p]) * x[(j - 1) % p] + (1 - delta_t) * x[j % p] + delta_t * F
+    for i in range(T // 2 + burn_in, T + burn_in):
+        X[i] = X[i - 1]
+        
+    X += np.random.normal(scale=sd, size=(T + burn_in, p))
+
+    # Set up Granger causality ground truth.
+    GC = np.zeros((p, p), dtype=int)
+    for i in range(p):
+        GC[i, i] = 1
+        GC[i, (i + 1) % p] = 1
+        GC[i, (i - 1) % p] = 1
+        GC[i, (i - 2) % p] = 1
+
+    return X[burn_in:], GC
+
 def simulate_lorenz_96_mine(p, T, F=2.5, delta_t=0.1, sd=0.1, burn_in=1000, scale=0.01, seed=0):
     if seed is not None:
         np.random.seed(seed)
@@ -130,7 +160,8 @@ def simulate_lorenz_96_mine(p, T, F=2.5, delta_t=0.1, sd=0.1, burn_in=1000, scal
         x = X[i-1]
         for j in range(p):
             X[i][j] = delta_t * (x[(j + 1) % p] - x[(j - 2) % p]) * x[(j - 1) % p] + (1 - delta_t) * x[j % p] + delta_t * F
-    # X += np.random.normal(scale=sd, size=(T + burn_in, p))
+        
+    X += np.random.normal(scale=sd, size=(T + burn_in, p))
 
     # Set up Granger causality ground truth.
     GC = np.zeros((p, p), dtype=int)
@@ -141,3 +172,60 @@ def simulate_lorenz_96_mine(p, T, F=2.5, delta_t=0.1, sd=0.1, burn_in=1000, scal
         GC[i, (i - 2) % p] = 1
 
     return X[burn_in:], GC
+
+def Causal_Figure(GC, GC_est):
+    fig, axarr = plt.subplots(1, 2, figsize=(16, 5))
+    axarr[0].imshow(GC, cmap='Blues')
+    axarr[0].set_title('GC actual')
+    axarr[0].set_ylabel('Affected series')
+    axarr[0].set_xlabel('Causal series')
+    axarr[0].set_xticks([])
+    axarr[0].set_yticks([])
+
+    im = axarr[1].imshow(GC_est, cmap='Blues')
+    axarr[1].set_title('GC estimated')
+    axarr[1].set_ylabel('Affected series')
+    axarr[1].set_xlabel('Causal series')
+    axarr[1].set_xticks([])
+    axarr[1].set_yticks([])
+    plt.colorbar(im, cax=None, ax=None, shrink=0.8)
+    
+def standardise(X, axis=0, keepdims=True, copy=False):
+    if copy:
+        X = np.copy(X)
+    # X -= X.mean(axis=axis, keepdims=keepdims)
+    # X /= X.std(axis=axis, keepdims=keepdims)
+    X -= X.mean(keepdims=keepdims)
+    X /= X.std(keepdims=keepdims)
+    return X
+
+def generator1(T=1000, alpha=0.05,B_self=1):
+    np.random.seed(0)
+    X = np.zeros([T,3])
+    X[:,2] = np.random.randint(-1,2,size=T)
+    for i in range(1,T):
+        X[i,0] = X[i-1,0] + X[i-1,2]
+        X[i,1] = B_self * X[i-1,1] + alpha * X[i-1,2] * X[i-1,0]
+    # plt.plot(X)
+    GC = np.array([[1,0,1],[1,B_self,1],[0,0,0]])
+    return X, GC
+
+def generator1_nonstationary(T=200, alpha=0.5):
+    np.random.seed(4)
+    GC1 = np.array([[1,0,1],[1,1,1],[0,0,0]])
+    GC2 = np.array([[1,0,1],[0,1,0],[0,0,0]])
+    GC_l = np.zeros([T,3,3])
+    GC_l[0] = GC1
+    alpha_l = np.zeros(T)
+    X = np.zeros([T,3])
+    X[:,2] = np.random.randint(-1,2,size=T)
+    alpha_l[:T//4] = alpha
+    alpha_l[3*T//4:] = alpha
+    for i in range(1,T):
+        X[i,0] = X[i-1,0] + X[i-1,2]
+        X[i,1] = alpha_l[i] * X[i-1,2] * X[i-1,0]
+        if alpha_l[i] == 0:
+            GC_l[i] = GC2
+        else:
+            GC_l[i] = GC1
+    return X, GC_l
