@@ -210,8 +210,8 @@ def generator1(T=1000, alpha=0.05,B_self=1):
     GC = np.array([[1,0,1],[1,B_self,1],[0,0,0]])
     return X, GC
 
-def generator1_nonstationary(T=200, alpha=0.5):
-    np.random.seed(4)
+def generator1_nonstationary(T=200, alpha=0.5,seed=0):
+    np.random.seed(seed)
     GC1 = np.array([[1,0,1],[1,1,1],[0,0,0]])
     GC2 = np.array([[1,0,1],[0,1,0],[0,0,0]])
     GC_l = np.zeros([T,3,3])
@@ -219,8 +219,7 @@ def generator1_nonstationary(T=200, alpha=0.5):
     alpha_l = np.zeros(T)
     X = np.zeros([T,3])
     X[:,2] = np.random.randint(-1,2,size=T)
-    alpha_l[:T//4] = alpha
-    alpha_l[3*T//4:] = alpha
+    alpha_l[T//4:3*T//4] = alpha
     for i in range(1,T):
         X[i,0] = X[i-1,0] + X[i-1,2]
         X[i,1] = alpha_l[i] * X[i-1,2] * X[i-1,0]
@@ -228,4 +227,38 @@ def generator1_nonstationary(T=200, alpha=0.5):
             GC_l[i] = GC2
         else:
             GC_l[i] = GC1
+    return X, GC_l
+
+def generator2(T=1000, alpha=1, beta=1, sd=0.01, scale=1):
+    np.random.seed(0)
+    X = np.zeros([T,4])
+    X[:,0] = scale * np.random.randint(-1,2,size=T)
+    X[:,1] = scale * np.random.randint(-1,2,size=T)
+    for i in range(1,T):
+        X[i,2] = alpha * (X[i-1,0] + X[i-1,1])
+        X[i,3] = beta * X[i-1,0] * X[i-1,1]
+    # plt.plot(X)
+    GC = np.array([[0,0,0,0],[0,0,0,0],[1*(alpha>0),1*(alpha>0),0,0],[1*(beta>0),1*(beta>0),0,0]])
+    X += np.random.normal(scale=sd, size=(T, 4))
+    return X, GC
+
+def generator2_nonstationary(T=1000, alpha=1, beta=1, sd=0.01, scale=1):
+    np.random.seed(0)
+    X = np.zeros([T,4])
+    alpha_l = np.zeros(T)
+    beta_l = np.zeros(T)
+    GC_l = np.zeros([T,4,4])
+    alpha_l[T//8:5*T//8] = alpha
+    beta_l[3*T//8:7*T//8] = beta
+    X[:,0] = scale * np.random.randint(-1,2,size=T)
+    X[:,1] = scale * np.random.randint(-1,2,size=T)
+    for i in range(1,T):
+        X[i,2] = alpha_l[i] * (X[i-1,0] + X[i-1,1])
+        X[i,3] = beta_l[i] * X[i-1,0] * X[i-1,1]
+        if alpha_l[i] > 0:
+            GC_l[i,2,0:2] = 1
+        if beta_l[i] > 0:
+            GC_l[i,3,0:2] = 1
+    # plt.plot(X)
+    X += np.random.normal(scale=sd, size=(T, 4))
     return X, GC_l
